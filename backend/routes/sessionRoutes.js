@@ -5,7 +5,8 @@ import {
     endSession, 
     getSessionById, 
     getSessions, 
-    submitAnswer
+    submitAnswer,
+    getWeaknessReport
 } from "../controllers/sessionController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { uploadSingleAudio } from "../middleware/uploadMiddleware.js";
@@ -19,6 +20,8 @@ router.use(protect);
 router.route("/")
     .get(getSessions)      // Fetch all sessions
     .post(createSession);  // Create new session
+
+router.route("/weaknesses").get(getWeaknessReport);
 
 // 2. ID Routes ("/:id")
 router.route("/:id")

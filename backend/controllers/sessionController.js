@@ -387,6 +387,59 @@ const endSession = asyncHandler(async (req, res) => {
     res.json({ message: 'Session ended successfully.', session });
 });
 
+// @desc    Get weakness analysis across all sessions
+// @route   GET /api/sessions/weaknesses
+// @access  Private
+const getWeaknessReport = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+
+    const results = await Session.aggregate([
+        // Only completed sessions for this user
+        { 
+            $match: { 
+                user: new mongoose.Types.ObjectId(userId), 
+                status: 'completed' 
+            } 
+        },
+        // Break questions array into individual documents
+        { $unwind: '$questions' },
+        // Only evaluated questions
+        { $match: { 'questions.isEvaluated': true } },
+        // Group by role + level + questionType
+        {
+            $group: {
+                _id: {
+                    role: '$role',
+                    level: '$level',
+                    questionType: '$questions.questionType',
+                },
+                avgTechnical: { $avg: '$questions.technicalScore' },
+                avgConfidence: { $avg: '$questions.confidenceScore' },
+                totalQuestions: { $sum: 1 },
+                sessionCount: { $addToSet: '$_id' }, // unique sessions
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                role: '$_id.role',
+                level: '$_id.level',
+                questionType: '$_id.questionType',
+                avgTechnical: { $round: ['$avgTechnical', 1] },
+                avgConfidence: { $round: ['$avgConfidence', 1] },
+                overallAvg: {
+                    $round: [{ $avg: ['$avgTechnical', '$avgConfidence'] }, 1]
+                },
+                totalQuestions: 1,
+                sessionCount: { $size: '$sessionCount' },
+            }
+        },
+        { $sort: { overallAvg: 1 } } // Weakest first
+    ]);
+
+    res.json(results);
+});
+
 export {
     createSession,
     getSessionById,
@@ -394,7 +447,8 @@ export {
     submitAnswer,
     endSession,
     calculateOverallScore,
-    deleteSession
+    deleteSession,
+    getWeaknessReport,
 };
 
 
